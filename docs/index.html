@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>claude-code-handoff-cowork — Cowork port of Sting25/claude-code-handoff</title>
+<meta name="description" content="A Cowork-installable port of Christopher Chadwick's claude-code-handoff. Snapshot Claude Code session state on exit; auto-load it on the next session start.">
+<style>
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #555;
+  --fg-faint: #888;
+  --bg: #fafafa;
+  --bg-card: #ffffff;
+  --accent: #c97b3a;
+  --accent-fg: #fff;
+  --border: #e5e0d8;
+  --code-bg: #f4ede2;
+  --good: #2e7d32;
+  --warn: #c62828;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg: #ebe7e0;
+    --fg-muted: #b5b0a5;
+    --fg-faint: #888;
+    --bg: #181715;
+    --bg-card: #211f1c;
+    --accent: #e09554;
+    --accent-fg: #181715;
+    --border: #3a352f;
+    --code-bg: #2a2723;
+    --good: #82c98a;
+    --warn: #ef8989;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+header {
+  padding: 64px 0 32px;
+  border-bottom: 1px solid var(--border);
+}
+header .upstream {
+  font-size: 13px;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+header h1 {
+  font-size: 38px;
+  line-height: 1.15;
+  margin: 0 0 12px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+header .tagline {
+  font-size: 18px;
+  color: var(--fg-muted);
+  margin: 0 0 24px;
+  max-width: 640px;
+}
+header .credit-line {
+  font-size: 14px;
+  color: var(--fg-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 10px 14px;
+  margin: 0 0 24px;
+  border-radius: 4px;
+}
+header .credit-line strong { color: var(--fg); }
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+}
+.btn {
+  display: inline-block;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--fg);
+  transition: transform 0.08s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+section { padding: 40px 0; border-bottom: 1px solid var(--border); }
+section:last-of-type { border-bottom: none; }
+h2 {
+  font-size: 24px;
+  margin: 0 0 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-size: 17px;
+  margin: 28px 0 8px;
+  font-weight: 600;
+}
+p { margin: 0 0 14px; color: var(--fg); }
+p.lead { font-size: 17px; color: var(--fg-muted); max-width: 640px; }
+ul, ol { margin: 0 0 14px; padding-left: 22px; }
+li { margin-bottom: 6px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre {
+  font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-size: 13.5px;
+}
+code {
+  background: var(--code-bg);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+pre {
+  background: var(--code-bg);
+  padding: 14px 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+}
+pre code { background: none; padding: 0; }
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.matrix th, .matrix td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.matrix th {
+  background: var(--bg-card);
+  font-weight: 600;
+}
+.matrix td.yes { color: var(--good); font-weight: 600; }
+.matrix td.no  { color: var(--warn); font-weight: 600; }
+.matrix td.no-shell { color: var(--fg-faint); font-style: italic; }
+.note {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  padding: 14px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+  font-size: 14.5px;
+  color: var(--fg-muted);
+}
+.note strong { color: var(--fg); }
+footer {
+  padding: 40px 0 80px;
+  font-size: 13.5px;
+  color: var(--fg-faint);
+  text-align: center;
+}
+footer a { color: var(--fg-muted); }
+.kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--bg-card);
+  color: var(--fg);
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="upstream">port of sting25/claude-code-handoff</div>
+  <h1>The next Claude Code session doesn't have to start blind.</h1>
+  <p class="tagline">A Cowork-installable port of Christopher Chadwick's <code>claude-code-handoff</code>. Snapshot session state on exit; auto-load it on the next session start. Plus <code>/handoff</code> at clean boundaries. Nothing to remember; nothing to copy-paste.</p>
+  <div class="credit-line">
+    <strong>Credit where it's due.</strong> The original idea, snapshot logic, transcript appender, and <code>/handoff</code> skill are by <a href="https://github.com/Sting25">Christopher Chadwick (@Sting25)</a>. This site is about a packaging port. <a href="https://github.com/Sting25/claude-code-handoff">Visit the upstream project</a>.
+  </div>
+  <div class="cta-row">
+    <a class="btn primary" href="https://github.com/scottconverse/claude-code-handoff-cowork">View on GitHub</a>
+    <a class="btn" href="#install">Install</a>
+    <a class="btn" href="https://github.com/scottconverse/claude-code-handoff-cowork/blob/main/USER-MANUAL.md">User manual</a>
+    <a class="btn" href="https://github.com/scottconverse/claude-code-handoff-cowork/discussions">Discuss</a>
+  </div>
+</header>
+
+<section>
+  <h2>The problem</h2>
+  <p class="lead">Claude Code sessions hit context limits. When they do, the next session starts blind — you re-explain the project, the in-flight track, the decisions you made twenty minutes ago, all from memory. The model has no continuity. You become the continuity.</p>
+  <p>Christopher Chadwick wrote <code>claude-code-handoff</code> to fix this for the standalone Claude Code CLI. This repo ports that work to the <strong>Cowork desktop app</strong>, where users install plugins through a UI rather than running shell scripts — and where the host-side shell on Windows (MSYS Git Bash) is missing two dependencies the upstream relies on.</p>
+</section>
+
+<section>
+  <h2>What it does</h2>
+  <ul>
+    <li><strong>On session exit:</strong> snapshots <code>HEAD</code>, branch, recent commits, working tree, and in-flight <code>.md</code> docs to <code>&lt;repo&gt;/.claude/handoff_current.md</code>.</li>
+    <li><strong>On next session start:</strong> reads that file and injects it as context. No prompt to remember.</li>
+    <li><strong>After every turn:</strong> appends the new transcript lines to a raw-dump backup at <code>.claude/handoff_backups/handoff_raw_&lt;session_id&gt;.md</code>. Saturated-context restart-from-thin-curated-notes failure mode goes away.</li>
+    <li><strong>On <code>/handoff</code>:</strong> trigger the snapshot manually at clean boundaries. The assistant appends a curated <code>## Notes from this session</code> block and prints a loud banner telling you to start a new session.</li>
+  </ul>
+  <p>All four behaviors are upstream's design. This port packages them for Cowork.</p>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <ol>
+    <li>Open the <strong>Cowork</strong> desktop app.</li>
+    <li>Sidebar → <strong>Customize → Browse plugins → Add marketplace</strong>.</li>
+    <li>Paste: <code>https://github.com/scottconverse/claude-code-handoff-cowork</code></li>
+    <li>Install <strong>claude-code-handoff</strong> from the marketplace.</li>
+    <li>Start a fresh <strong>Code</strong>-tab session in any git repo. The <code>/handoff</code> skill appears in the <span class="kbd">/</span> menu.</li>
+  </ol>
+  <p>For the standalone Claude Code CLI (Linux/macOS terminal, no Cowork app), use <a href="https://github.com/Sting25/claude-code-handoff">Sting25/claude-code-handoff</a> directly. Its <code>install.sh</code> is the right path there.</p>
+</section>
+
+<section>
+  <h2>Which tabs does it work in?</h2>
+  <p>The Cowork desktop app has three tabs and they run different runtimes.</p>
+  <table class="matrix">
+    <thead>
+      <tr><th>Tab</th><th>/handoff</th><th>SessionStart auto-load</th><th>SessionEnd auto-write</th><th>Stop per-turn dump</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Code</strong></td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+      <tr><td><strong>Cowork</strong></td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+      <tr><td><strong>Chat</strong></td><td class="no-shell">no shell</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
+    </tbody>
+  </table>
+  <p>The Cowork-VM-tab issue is upstream Anthropic bugs <a href="https://github.com/anthropics/claude-code/issues/27398">#27398</a> and <a href="https://github.com/anthropics/claude-code/issues/40495">#40495</a> — affects every marketplace plugin with hooks. The <code>/handoff</code> skill still loads there; use it manually.</p>
+</section>
+
+<section>
+  <h2>Verified end-to-end</h2>
+  <p>Tested on Windows 11 + MSYS Git Bash + Claude Code 2.1.87 with a real <code>claude -p</code> headless run against a real git repo and a real Anthropic API turn. All three hooks fired in sequence:</p>
+  <pre><code>[2026-05-12T19:47:40Z] event=SessionStart
+[2026-05-12T19:47:43Z] event=Stop
+[2026-05-12T19:47:44Z] event=SessionEnd</code></pre>
+  <p>Both artifacts written. The raw-dump file contained the actual model conversation:</p>
+  <pre><code>## Turn at 2026-05-12 19:47:43 UTC
+
+**User:**     Reply: ok
+**Assistant:** ok</code></pre>
+  <p>Full receipts including probe-log captures and commit SHAs: <a href="https://github.com/scottconverse/claude-code-handoff-cowork/blob/main/docs/VERIFICATION.md">VERIFICATION.md</a>.</p>
+</section>
+
+<section>
+  <h2>What's port-specific (vs upstream)</h2>
+  <p>Snapshot logic, output format, skill spec, <code>HANDOFF_*</code> env vars, substrate pattern — all <strong>unchanged</strong> from upstream. This port adds packaging and platform portability:</p>
+  <ul>
+    <li><strong>Plugin + marketplace manifests</strong> so the Cowork app's UI can install it.</li>
+    <li><strong>Declarative <code>hooks/hooks.json</code> wiring</strong> with <code>${CLAUDE_PLUGIN_ROOT}</code>, replacing upstream's <code>install.sh</code> settings.json patcher.</li>
+    <li><strong><code>jq</code> replaced with a Perl <code>JSON::PP</code> helper</strong> — same parse, no install dependency (Perl ships everywhere; <code>jq</code> doesn't on MSYS Git Bash).</li>
+    <li><strong><code>flock</code> replaced with an atomic <code>mkdir</code>-based lock</strong> — same serialization, works on every platform.</li>
+    <li><strong>Three-tier session-info fallback</strong> in the Stop hook (JSON stdin → <code>CLAUDE_ENV_FILE</code> → encoded <code>~/.claude/projects/</code>) so the plugin works in headless mode as well as interactive.</li>
+    <li><strong><code>CLAUDE_PROJECT_DIR</code>-preferred repo resolution</strong> because Cowork's Code tab shells in <code>.klodock</code>, not the user's project.</li>
+    <li><strong><code>bin/probe_hook.sh</code> diagnostic logger</strong> wired ahead of every hook. Writes to <code>~/handoff_probe.log</code>. When something doesn't work, that's the first place to look.</li>
+  </ul>
+  <p>See <a href="https://github.com/scottconverse/claude-code-handoff-cowork/blob/main/ARCHITECTURE.md">ARCHITECTURE.md</a> for the full per-piece breakdown with sequence diagrams.</p>
+</section>
+
+<section>
+  <h2>Honest caveats</h2>
+  <p>Things I want you to know before you install this.</p>
+  <ul>
+    <li><strong>Final interactive Cowork-app verification isn't on file yet.</strong> Headless <code>claude -p</code> testing on the same binary the Cowork app spawns is the strongest signal short of a real Cowork session. The diagnostic probe is deployed; the first real Cowork session run after install writes a definitive trace to <code>~/handoff_probe.log</code>.</li>
+    <li><strong>The Cowork-VM tab silently degrades.</strong> Skill works; hooks don't. Not a port issue (upstream Anthropic bugs); but if you live in the Cowork-VM tab, this plugin gives you the skill only.</li>
+    <li><strong>Standalone Claude Code CLI users should use the upstream install path.</strong> This port adds packaging the upstream doesn't need. Different tools for different surfaces.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Credit, again, plainly</h2>
+  <p class="lead">Christopher Chadwick (<a href="https://github.com/Sting25">@Sting25</a>) wrote this. The idea is his. The snapshot script is his. The transcript appender is his. The <code>/handoff</code> skill spec is his. The substrate pattern is his. The <code>HANDOFF_*</code> env-var interface is his.</p>
+  <p>This repo is packaging and portability shims around his work. If <code>claude-code-handoff</code> is useful to you, <a href="https://github.com/Sting25/claude-code-handoff">his repo</a> is where to file enhancements to the logic, send a thank-you, or follow upstream development.</p>
+</section>
+
+<footer>
+  <p>License: MIT. Copyright © 2026 Christopher Chadwick, preserved verbatim from upstream. Port additions under the same license.</p>
+  <p>
+    <a href="https://github.com/scottconverse/claude-code-handoff-cowork">Repo</a> ·
+    <a href="https://github.com/Sting25/claude-code-handoff">Upstream</a> ·
+    <a href="https://github.com/scottconverse/claude-code-handoff-cowork/blob/main/USER-MANUAL.md">Manual</a> ·
+    <a href="https://github.com/scottconverse/claude-code-handoff-cowork/blob/main/ARCHITECTURE.md">Architecture</a> ·
+    <a href="https://github.com/scottconverse/claude-code-handoff-cowork/blob/main/docs/VERIFICATION.md">Verification</a> ·
+    <a href="https://github.com/scottconverse/claude-code-handoff-cowork/discussions">Discussions</a>
+  </p>
+</footer>
+
+</div>
+</body>
+</html>
