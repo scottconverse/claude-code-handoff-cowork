@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/handoff_current.md\"; if [ -f \"$f\" ]; then echo '## Auto-loaded handoff from previous session'; echo; cat \"$f\"; fi"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/probe_hook.sh\" SessionStart </dev/null; f=\"$CLAUDE_PROJECT_DIR/.claude/handoff_current.md\"; if [ -f \"$f\" ]; then echo '## Auto-loaded handoff from previous session'; echo; cat \"$f\"; fi"
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/write_handoff.sh\" >/dev/null 2>&1 || true"
+            "command": "tee_payload=\"$(cat || true)\"; printf '%s' \"$tee_payload\" | bash \"${CLAUDE_PLUGIN_ROOT}/bin/probe_hook.sh\" SessionEnd; bash \"${CLAUDE_PLUGIN_ROOT}/bin/write_handoff.sh\" >/dev/null 2>&1 || true"
           }
         ]
       }
@@ -25,7 +25,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/handoff_turn_append.sh\" 2>/dev/null || true"
+            "command": "tee_payload=\"$(cat || true)\"; printf '%s' \"$tee_payload\" | bash \"${CLAUDE_PLUGIN_ROOT}/bin/probe_hook.sh\" Stop; printf '%s' \"$tee_payload\" | bash \"${CLAUDE_PLUGIN_ROOT}/bin/handoff_turn_append.sh\" 2>/dev/null || true"
           }
         ]
       }
