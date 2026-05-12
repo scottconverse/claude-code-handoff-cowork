@@ -32,6 +32,29 @@ loud banner telling the user to start a new session.
 3. Find **claude-code-handoff** in the marketplace and click **Install**.
 4. Start a fresh session in any tab — the `/handoff` skill should appear in the `/` menu.
 
+## How the plugin finds the project
+
+All three hooks resolve the project repo from the `CLAUDE_PROJECT_DIR`
+environment variable that Claude Code sets at session spawn. If that's
+unset (shouldn't happen in normal Code-tab sessions) the scripts fall
+back to `git rev-parse --show-toplevel` from the shell's cwd.
+
+This matters for the **Cowork app's Code tab** specifically: the shell
+cwd at session start is `C:\Users\scott\.klodock` (a Cowork sandbox
+dir), not the project folder you picked in the UI. The scripts ignore
+that cwd and use `CLAUDE_PROJECT_DIR` instead. Verified headless via
+`claude -p`: `CLAUDE_PROJECT_DIR` resolves to the launch cwd in both
+`SessionStart` and `SessionEnd` hook context, so as long as Cowork
+launches `claude` with the project folder as the launch cwd (or sets
+`CLAUDE_PROJECT_DIR` explicitly), the plugin operates on the right
+repo regardless of the shell's pwd.
+
+If a session fires hooks but produces no snapshot, that's the
+diagnostic to check first: `bash bin/probe_hook.sh` is wired ahead of
+each real hook command and logs the env it saw to
+`~/handoff_probe.log`. Compare `CLAUDE_PROJECT_DIR` and `git_top_*` in
+the log to figure out what Cowork is exposing.
+
 ## Where this plugin works (and where it doesn't)
 
 The Cowork app has three tabs. They use different runtimes, and the
