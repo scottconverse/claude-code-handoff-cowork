@@ -28,9 +28,19 @@ INFLIGHT_DIRS="${HANDOFF_INFLIGHT_DIRS:-docs}"
 SUBSTRATE_NAME="${HANDOFF_SUBSTRATE_NAME:-}"
 SUBSTRATE_INFLIGHT_DIRS="${HANDOFF_SUBSTRATE_INFLIGHT_DIRS:-}"
 
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+# Resolve repo root with cwd-agnostic logic. In Cowork-app Code-tab sessions
+# the shell cwd is C:\Users\scott\.klodock (a Cowork sandbox dir), not the
+# user's project. CLAUDE_PROJECT_DIR is the authoritative project pointer
+# when set; fall back to pwd only as a last resort.
+repo_root=""
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  repo_root="$(git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+fi
 if [[ -z "$repo_root" ]]; then
-  echo "ERROR: not in a git repo (cwd=$PWD)" >&2
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+fi
+if [[ -z "$repo_root" ]]; then
+  echo "ERROR: no git repo found via CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-<unset>} or cwd=$PWD" >&2
   exit 1
 fi
 

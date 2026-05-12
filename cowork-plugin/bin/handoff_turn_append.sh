@@ -40,8 +40,17 @@ transcript_path="$(printf '%s' "$parsed" | sed -n '2p')"
 [[ -z "$transcript_path"   ]] && exit 0
 [[ ! -f "$transcript_path" ]] && exit 0
 
-# --- Repo scope: only run inside git worktrees ---
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+# --- Repo scope: only run inside git worktrees.
+# Prefer CLAUDE_PROJECT_DIR (set by Claude Code to the launch cwd) over the
+# shell's own cwd, because Cowork-app Code-tab sessions root the shell at
+# .klodock (a Cowork sandbox dir), not the user's project.
+repo_root=""
+if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  repo_root="$(git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
+fi
+if [[ -z "$repo_root" ]]; then
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+fi
 [[ -z "$repo_root" ]] && exit 0
 
 backup_dir="$repo_root/.claude/handoff_backups"
