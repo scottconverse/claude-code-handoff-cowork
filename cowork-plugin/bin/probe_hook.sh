@@ -23,14 +23,16 @@ ts="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
   printf '  git_top_from_pwd=%s\n' "$(git rev-parse --show-toplevel 2>&1)"
   printf '  git_top_from_project_dir=%s\n' "$(git -C "${CLAUDE_PROJECT_DIR:-/nonexistent}" rev-parse --show-toplevel 2>&1)"
   if [ "$event" = "Stop" ] || [ "$event" = "SessionEnd" ]; then
-    # Capture stdin payload too (hook events Stop/SessionEnd get JSON on stdin).
     payload="$(cat 2>/dev/null || true)"
     printf '  stdin_bytes=%d\n' "${#payload}"
-    # Don't dump full payload (transcripts can be huge); show first 200 chars.
     if [ -n "$payload" ]; then
       printf '  stdin_head=%s\n' "$(printf '%s' "$payload" | head -c 200)"
     fi
   fi
+  # Dump CLAUDE_* and any session/transcript env vars to find where Claude Code
+  # is exposing session_id and transcript_path.
+  printf '  --- CLAUDE_* env vars ---\n'
+  env | grep -iE '^(CLAUDE|SESSION|TRANSCRIPT|HOOK)' | sed 's/^/    /'
   printf '\n'
 } >> "$log" 2>&1
 

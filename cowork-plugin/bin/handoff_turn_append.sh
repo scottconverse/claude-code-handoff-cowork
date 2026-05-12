@@ -26,15 +26,55 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 formatter="$script_dir/handoff_turn_format.pl"
 
-# --- Read hook payload from stdin and extract session_id, transcript_path ---
-payload="$(cat)"
-parsed="$(printf '%s' "$payload" | perl -MJSON::PP -e '
-  local $/; my $j = <STDIN>;
-  my $o = eval { decode_json($j) } || {};
-  print +($o->{session_id} // ""), "\n", +($o->{transcript_path} // ""), "\n";
-')"
-session_id="$(printf '%s' "$parsed"      | sed -n '1p')"
-transcript_path="$(printf '%s' "$parsed" | sed -n '2p')"
+# --- Resolve session_id and transcript_path.
+# Primary source: JSON payload on stdin (interactive Claude Code passes
+# {"session_id":..., "transcript_path":...}). In `claude -p` headless mode
+# stdin is empty, so we fall back to deriving both from env vars:
+#   - session_id from $CLAUDE_ENV_FILE (path includes the session UUID)
+#   - transcript_path by searching $HOME/.claude/projects/*/<session_id>.jsonl
+session_id=""
+transcript_path=""
+
+payload="$(cat 2>/dev/null || true)"
+if [[ -n "$payload" ]]; then
+  parsed="$(printf '%s' "$payload" | perl -MJSON::PP -e '
+    local $/; my $j = <STDIN>;
+    my $o = eval { decode_json($j) } || {};
+    print +($o->{session_id} // ""), "\n", +($o->{transcript_path} // ""), "\n";
+  ' 2>/dev/null)"
+  session_id="$(printf '%s' "$parsed"      | sed -n '1p')"
+  transcript_path="$(printf '%s' "$parsed" | sed -n '2p')"
+fi
+
+if [[ -z "$session_id" && -n "${CLAUDE_ENV_FILE:-}" ]]; then
+  # CLAUDE_ENV_FILE is set during SessionStart and looks like
+  # .../session-env/<UUID>/sessionstart-hook-0.sh
+  candidate="$(basename "$(dirname "$CLAUDE_ENV_FILE")")"
+  if [[ "$candidate" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    session_id="$candidate"
+  fi
+fi
+
+# Last-resort fallback for headless mode (and any hook event that doesn't
+# expose CLAUDE_ENV_FILE): find the newest .jsonl in the encoded project dir
+# under ~/.claude/projects/. Claude Code encodes the project path by replacing
+# `:`, `/`, and `\` with `-` (so C:\Users\foo becomes C--Users-foo).
+if [[ -z "$transcript_path" && -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+  winpath="$(cygpath -w "$CLAUDE_PROJECT_DIR" 2>/dev/null || printf '%s' "$CLAUDE_PROJECT_DIR")"
+  encoded="$(printf '%s' "$winpath" | sed 's/[\\:/]/-/g')"
+  project_jsonl_dir="$HOME/.claude/projects/$encoded"
+  if [[ -d "$project_jsonl_dir" ]]; then
+    transcript_candidate="$(ls -t "$project_jsonl_dir"/*.jsonl 2>/dev/null | head -1)"
+    if [[ -n "$transcript_candidate" && -f "$transcript_candidate" ]]; then
+      transcript_path="$transcript_candidate"
+      [[ -z "$session_id" ]] && session_id="$(basename "$transcript_candidate" .jsonl)"
+    fi
+  fi
+fi
+
+if [[ -z "$transcript_path" && -n "$session_id" ]]; then
+  transcript_path="$(find "$HOME/.claude/projects" -name "${session_id}.jsonl" -type f 2>/dev/null | head -1)"
+fi
 
 [[ -z "$session_id"        ]] && exit 0
 [[ -z "$transcript_path"   ]] && exit 0
