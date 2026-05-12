@@ -1,0 +1,28 @@
+{
+  "name": "claude-code-handoff-cowork",
+  "owner": {
+    "name": "Scott Converse",
+    "email": "sconverse@gmail.com"
+  },
+  "metadata": {
+    "description": "Cowork-installable port of Sting25/claude-code-handoff. Single-plugin marketplace. Upstream snapshot/skill logic by Christopher Chadwick (MIT); this repo packages it for the Cowork app and replaces jq/flock with portable equivalents.",
+    "version": "0.1.0",
+    "homepage": "https://github.com/scottconverse/claude-code-handoff-cowork",
+    "repository": "https://github.com/scottconverse/claude-code-handoff-cowork"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-handoff",
+      "description": "Auto-snapshot session state on exit; auto-load on next session start; /handoff for manual invocation at clean boundaries. Solves 'next session starts blind' after the context window fills.",
+      "version": "0.1.0",
+      "source": "./cowork-plugin",
+      "author": {
+        "name": "Scott Converse",
+        "email": "sconverse@gmail.com"
+      },
+      "license": "MIT",
+      "homepage": "https://github.com/scottconverse/claude-code-handoff-cowork",
+      "keywords": ["handoff", "session", "context", "git", "snapshot", "cowork"]
+    }
+  ]
+}

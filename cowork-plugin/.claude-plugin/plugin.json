@@ -1,0 +1,20 @@
+{
+  "name": "claude-code-handoff",
+  "version": "0.1.0",
+  "description": "Cowork-installable port of Sting25/claude-code-handoff. Auto-snapshot session state to .claude/handoff_current.md on session exit; auto-load it on the next session start. Plus /handoff for manual invocation at clean boundaries. Snapshot logic and skill spec are by Christopher Chadwick (upstream); this port adds the plugin manifest, the hooks/hooks.json wiring, an atomic mkdir-based lock to replace flock, and a Perl JSON::PP helper to replace jq.",
+  "author": {
+    "name": "Scott Converse",
+    "email": "sconverse@gmail.com"
+  },
+  "contributors": [
+    {
+      "name": "Christopher Chadwick",
+      "url": "https://github.com/Sting25",
+      "note": "Upstream author of claude-code-handoff (https://github.com/Sting25/claude-code-handoff). Snapshot script, Stop-hook transcript appender, and /handoff skill spec are his work, used under MIT."
+    }
+  ],
+  "homepage": "https://github.com/scottconverse/claude-code-handoff-cowork",
+  "repository": "https://github.com/scottconverse/claude-code-handoff-cowork",
+  "license": "MIT",
+  "keywords": ["handoff", "session", "context", "git", "snapshot", "cowork"]
+}

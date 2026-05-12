@@ -1,0 +1,8 @@
+# Shell scripts and Perl must keep LF line endings on every platform —
+# CRLF breaks bash and confuses perl shebang resolution.
+*.sh  text eol=lf
+*.pl  text eol=lf
+
+# JSON and Markdown are line-ending-agnostic; let git normalize.
+*.json text
+*.md   text
